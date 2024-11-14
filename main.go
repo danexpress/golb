@@ -11,11 +11,7 @@ import (
 func main() {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /posts/{slug}", func(w http.ResponseWriter, r *http.
-		Request) {
-		slug := r.PathValue("slug")
-		fmt.Fprintf(w, "Post: %s", slug)
-	})
+	mux.HandleFunc("GET /posts/{slug}", PostHandler(FileReader{}))
 
 	err := http.ListenAndServe(":3030", mux)
 	if err != nil {
@@ -41,4 +37,16 @@ func (fr FileReader) Read(slug string) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func PostHandler(sl SlugReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		postMarkdown, err := sl.Read(slug)
+		if err != nil {
+			http.Error(w, "Post not found", http.StatusNotFound)
+			return
+		}
+		fmt.Fprint(w, postMarkdown)
+	}
 }
