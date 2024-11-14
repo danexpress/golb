@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 )
 
 func main() {
@@ -19,4 +21,24 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+type SlugReader interface {
+	Read(slug string) (string, error)
+}
+
+type FileReader struct{}
+
+func (fr FileReader) Read(slug string) (string, error) {
+	f, err := os.Open(slug + ".md")
+	if err != nil {
+
+		return "", err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
