@@ -1,7 +1,9 @@
 package main
 
 import (
+	// "bytes"
 	"bytes"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -14,7 +16,9 @@ import (
 func main() {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /posts/{slug}", PostHandler(FileReader{}))
+	posttemplate := template.Must(template.ParseFiles("post.gohtml"))
+
+	mux.HandleFunc("GET /posts/{slug}", PostHandler(FileReader{}, posttemplate))
 
 	err := http.ListenAndServe(":3030", mux)
 	if err != nil {
@@ -42,7 +46,13 @@ func (fr FileReader) Read(slug string) (string, error) {
 	return string(b), nil
 }
 
-func PostHandler(sl SlugReader) http.HandlerFunc {
+type PostData struct {
+	Content string
+	Author  string
+	Title   string
+}
+
+func PostHandler(sl SlugReader, tpl *template.Template) http.HandlerFunc {
 	mdRenderer := goldmark.New(
 		goldmark.WithExtensions(
 			highlighting.NewHighlighting(
@@ -64,6 +74,18 @@ func PostHandler(sl SlugReader) http.HandlerFunc {
 		if err != nil {
 			panic(err)
 		}
-		io.Copy(w, &buf)
+
+		err = tpl.Execute(w, PostData{
+			Content: buf.String(),
+			Author:  "Cridix",
+			Title:   "My Blog",
+		})
+
+		if err != nil {
+			http.Error(w, "Error executing template", http.StatusInternalServerError)
+			return
+		}
+		// io.Copy(w, &buf)
 	}
+
 }
