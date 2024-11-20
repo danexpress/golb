@@ -1,4 +1,12 @@
-# How to Boil Eggs
++++
+title = "How to Boil Eggs"
+description = "Learn how to quickly and easily boil 6 eggs!"
+data = 2024-03-03
+
+[author]
+name = "cridix"
+email = "cridix401@gmail.com"
++++
 
 Ingredients: 6 eggs, 4 cups of water
 

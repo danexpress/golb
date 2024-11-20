@@ -1,14 +1,15 @@
 package main
 
 import (
-	// "bytes"
 	"bytes"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/adrg/frontmatter"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 )
@@ -47,9 +48,14 @@ func (fr FileReader) Read(slug string) (string, error) {
 }
 
 type PostData struct {
-	Content string
-	Author  string
-	Title   string
+	Content template.HTML
+	Title   string `toml:"title"`
+	Author  Author `toml:"author"`
+}
+
+type Author struct {
+	Name  string `toml:"name"`
+	Email string `toml:"email"`
 }
 
 func PostHandler(sl SlugReader, tpl *template.Template) http.HandlerFunc {
@@ -69,17 +75,22 @@ func PostHandler(sl SlugReader, tpl *template.Template) http.HandlerFunc {
 			return
 		}
 
+		var post PostData
+		remainingMd, err := frontmatter.Parse(strings.NewReader(postMarkdown), &post)
+		if err != nil {
+			http.Error(w, "Error parsing frontmatter", http.StatusInternalServerError)
+			return
+		}
+
 		var buf bytes.Buffer
-		err = mdRenderer.Convert([]byte(postMarkdown), &buf)
+		err = mdRenderer.Convert([]byte(remainingMd), &buf)
 		if err != nil {
 			panic(err)
 		}
 
-		err = tpl.Execute(w, PostData{
-			Content: buf.String(),
-			Author:  "Cridix",
-			Title:   "My Blog",
-		})
+		post.Content = template.HTML(buf.String())
+
+		err = tpl.Execute(w, post)
 
 		if err != nil {
 			http.Error(w, "Error executing template", http.StatusInternalServerError)
