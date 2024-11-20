@@ -1,10 +1,11 @@
-package main
+package golb
 
 import (
 	"bytes"
 	"html/template"
 	"io"
-	"log"
+	"time"
+
 	"net/http"
 	"os"
 	"strings"
@@ -14,17 +15,16 @@ import (
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 )
 
-func main() {
-	mux := http.NewServeMux()
+type MetadataQuerier interface {
+	Query() ([]PostMetadata, error)
+}
 
-	posttemplate := template.Must(template.ParseFiles("post.gohtml"))
-
-	mux.HandleFunc("GET /posts/{slug}", PostHandler(FileReader{}, posttemplate))
-
-	err := http.ListenAndServe(":3030", mux)
-	if err != nil {
-		log.Fatal(err)
-	}
+type PostMetadata struct {
+	Slug        string
+	Title       string    `toml:"title"`
+	Author      string    `toml:"author"`
+	Description string    `toml:"description"`
+	Date        time.Time `toml:"date"`
 }
 
 type SlugReader interface {
@@ -99,4 +99,19 @@ func PostHandler(sl SlugReader, tpl *template.Template) http.HandlerFunc {
 		// io.Copy(w, &buf)
 	}
 
+}
+
+func IndexHandler(mq MetadataQuerier, tpl *template.Template) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		posts, err := mq.Query()
+		if err != nil {
+			http.Error(w, "Error querying posts", http.StatusInternalServerError)
+			return
+		}
+		err = tpl.Execute(w, posts)
+		if err != nil {
+			http.Error(w, "Error executing template", http.StatusInternalServerError)
+			return
+		}
+	}
 }
