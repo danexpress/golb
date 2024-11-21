@@ -137,7 +137,6 @@ func IndexHandler(mq MetadataQuerier, tpl *template.Template) http.HandlerFunc {
 			http.Error(w, "Error querying posts", http.StatusInternalServerError)
 			return
 		}
-
 		data := IndexData{
 			Posts: posts,
 		}
