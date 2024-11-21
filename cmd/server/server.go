@@ -21,12 +21,12 @@ func main() {
 func run(args []string, Stdout io.Writer) error {
 	mux := http.NewServeMux()
 
+	postReader := golb.FileReader{}
 	postTemplate := template.Must(template.ParseFiles("post.gohtml"))
+	mux.HandleFunc("GET /posts/{slug}", golb.PostHandler(postReader, postTemplate))
 
-	mux.HandleFunc("GET /posts/{slug}", golb.PostHandler(
-		golb.FileReader{},
-		postTemplate,
-	))
+	indexTemplate := template.Must(template.ParseFiles("index.gohtml"))
+	mux.HandleFunc("GET /", golb.IndexHandler(postReader, indexTemplate))
 
 	err := http.ListenAndServe(":3030", mux)
 	if err != nil {
