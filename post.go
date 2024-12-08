@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"path/filepath"
-	"time"
-
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/adrg/frontmatter"
 	"github.com/yuin/goldmark"
@@ -24,7 +23,7 @@ type MetadataQuerier interface {
 type PostMetadata struct {
 	Slug        string
 	Title       string    `toml:"title"`
-	Author      string    `toml:"author"`
+	Author      Author    `toml:"author"`
 	Description string    `toml:"description"`
 	Date        time.Time `toml:"date"`
 }
@@ -33,12 +32,15 @@ type SlugReader interface {
 	Read(slug string) (string, error)
 }
 
-type FileReader struct{}
+type FileReader struct {
+	// Directory to find blog posts in.
+	Dir string
+}
 
 func (fr FileReader) Read(slug string) (string, error) {
-	f, err := os.Open(slug + ".md")
+	slugPath := filepath.Join(fr.Dir, slug+".md")
+	f, err := os.Open(slugPath)
 	if err != nil {
-
 		return "", err
 	}
 	defer f.Close()
@@ -50,15 +52,16 @@ func (fr FileReader) Read(slug string) (string, error) {
 }
 
 func (fr FileReader) Query() ([]PostMetadata, error) {
-	filenames, err := filepath.Glob("*.md")
+	postsPath := filepath.Join(fr.Dir, "*.md")
+	filenames, err := filepath.Glob(postsPath)
 	if err != nil {
-		return nil, fmt.Errorf("quering for files: %w", err)
+		return nil, fmt.Errorf("querying for files: %w", err)
 	}
 	var posts []PostMetadata
 	for _, filename := range filenames {
 		f, err := os.Open(filename)
 		if err != nil {
-			return nil, fmt.Errorf("Opening file %s: %w", filename, err)
+			return nil, fmt.Errorf("opening file %s: %w", filename, err)
 		}
 		defer f.Close()
 		var post PostMetadata
@@ -89,13 +92,14 @@ func PostHandler(sl SlugReader, tpl *template.Template) http.HandlerFunc {
 			highlighting.NewHighlighting(
 				highlighting.WithStyle("dracula"),
 			),
+			// AsideBlockExtension{},
 		),
 	)
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := r.PathValue("slug")
 		postMarkdown, err := sl.Read(slug)
 		if err != nil {
+			// TODO: Handle different errors in the future
 			http.Error(w, "Post not found", http.StatusNotFound)
 			return
 		}
@@ -112,18 +116,14 @@ func PostHandler(sl SlugReader, tpl *template.Template) http.HandlerFunc {
 		if err != nil {
 			panic(err)
 		}
-
 		post.Content = template.HTML(buf.String())
 
 		err = tpl.Execute(w, post)
-
 		if err != nil {
 			http.Error(w, "Error executing template", http.StatusInternalServerError)
 			return
 		}
-		// io.Copy(w, &buf)
 	}
-
 }
 
 type IndexData struct {
